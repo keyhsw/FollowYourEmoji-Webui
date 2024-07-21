@@ -65,6 +65,10 @@ def is_anomaly(ssim_score, mean_diff, ssim_history, mean_diff_history):
 def visualize(dataloader, pipeline, generator, W, H, video_length, num_inference_steps, guidance_scale, output_path, output_fps=7, limit=1, show_stats=False, anomaly_action="none", callback_steps=1, context_frames=24, context_stride=1, context_overlap=4, context_batch_size=1,interpolation_factor=1):
     oo_video_path = None
     all_video_path = None
+    
+    # Clear memory
+    torch.cuda.empty_cache()
+    gc.collect()
 
     for i, batch in enumerate(dataloader):
         ref_frame = batch['ref_frame'][0]
@@ -134,7 +138,10 @@ def visualize(dataloader, pipeline, generator, W, H, video_length, num_inference
                     print(f"Frame {idx}: SSIM: {ssim_score:.4f}, Mean Diff: {mean_diff:.4f}")
 
                 if is_anomaly(ssim_score, mean_diff, ssim_history, mean_diff_history):
-                    print(f"Anomaly detected in frame {idx}")
+                    
+                    if show_stats or anomaly_action != "none":
+                        print(f"Anomaly detected in frame {idx}")
+    
                     if anomaly_action == "remove":
                         continue
                     # Если "none", просто продолжаем без каких-либо действий

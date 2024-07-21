@@ -158,5 +158,7 @@ def process_image(image_path, npy_path, save_dir, expand_x=1.0, expand_y=1.0, of
     # Save visualization
     motion_path = os.path.join(save_dir, f"{base_name}_motion.png")
     cv2.imwrite(motion_path, cv2.cvtColor(motion, cv2.COLOR_RGB2BGR))
+    
+    
 
     return cropped_image_path, motion_path

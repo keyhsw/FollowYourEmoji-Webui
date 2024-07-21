@@ -62,17 +62,18 @@ def show_gif_for_npy(npy_file, video_path):
         video_name = os.path.splitext(os.path.basename(video_path))[0]
         npy_path = os.path.join(PROCESSED_VIDEO_DIR if input_video_save.value else TEMP_DIR, video_name, f"{video_name}_mppose.npy")
     else:
-        return None, "No NPY file or video selected"
+        return None, None, "No NPY file or video selected"
 
     if not os.path.exists(npy_path):
-        return None, "NPY file not found"
+        return None, None, "NPY file not found"
 
     try:
         gif_path = os.path.join(os.path.dirname(npy_path), f"{os.path.splitext(os.path.basename(npy_path))[0]}_preview.gif")
+        gif_path_align = os.path.join(os.path.dirname(npy_path), f"{os.path.splitext(os.path.basename(npy_path))[0]}_aligned.gif")
         create_gif_from_npy(npy_path, gif_path)
-        return gif_path, "GIF created and displayed"
+        return gif_path,gif_path_align, "GIF created and displayed"
     except Exception as e:
-        return None, f"Failed to create GIF: {str(e)}"
+        return None, None, f"Failed to create GIF: {str(e)}"
 
 
 def process_input_video(video, save_to_processed):
@@ -95,7 +96,7 @@ def process_input_video(video, save_to_processed):
     return (f"Video processed. NPY file saved at {npy_path}. Original FPS: {fps}",
             npy_path,
             gr.update(maximum=frame_count, value=frame_count),
-            gr.update(value=f"FPS: {fps}"))
+            gr.update(value=f"Reference video FPS: {fps}"))
 
 def update_frame_count(npy_file):
     if npy_file is None or npy_file == "None":
@@ -105,9 +106,9 @@ def update_frame_count(npy_file):
 
 def update_gif_on_video_change(video):
     if video:
-        gif_path, status = show_gif_for_npy(None, video)
-        return gif_path, status
-    return None, "No video selected"
+        gif_path,gif_path_align, status = show_gif_for_npy(None, video)
+        return gif_path,gif_path_align, status
+    return None, None, "No video selected"
 
 def toggle_fps_slider(use_custom):
     return gr.update(interactive=use_custom)
@@ -139,7 +140,7 @@ def crop_face(image_path, should_crop_face, npy_file, video_path, expand_x, expa
 
 def preview_crop(image_path, npy_file, video_path, expand_x, expand_y, offset_x, offset_y):
     if not image_path:
-        return None, "No image uploaded"
+        return None,None, "No image uploaded"
 
     if npy_file and npy_file != "None":
         npy_path = npy_file
@@ -149,18 +150,20 @@ def preview_crop(image_path, npy_file, video_path, expand_x, expand_y, offset_x,
         if not os.path.exists(npy_path):
             npy_path = os.path.join(TEMP_DIR, video_name, f"{video_name}_mppose.npy")
     else:
-        return None, "No NPY file or video selected for face cropping"
+        return None,None, "No NPY file or video selected for face cropping"
 
     if not os.path.exists(npy_path):
-        return None, "NPY file not found for face cropping"
+        return None,None, "NPY file not found for face cropping"
 
     save_dir = TEMP_DIR
-    cropped_image_path, _ = process_image(image_path, npy_path, save_dir, expand_x, expand_y, offset_x, offset_y)
+    # Create if not exists
+    os.makedirs(save_dir, exist_ok=True)
+    cropped_image_path, motion_path = process_image(image_path, npy_path, save_dir, expand_x, expand_y, offset_x, offset_y)
 
     if cropped_image_path:
-        return cropped_image_path, "Crop preview generated"
+        return cropped_image_path,motion_path, "Crop preview generated"
     else:
-        return None, "Failed to generate crop preview"
+        return None,None, "Failed to generate crop preview"
 
 def generate_video(input_img, should_crop_face, expand_x, expand_y, offset_x, offset_y, input_video_type, input_video, input_npy_select, input_npy, input_video_frames,
                    settings_steps, settings_cfg_scale, settings_seed, resolution_w, resolution_h,
@@ -260,9 +263,10 @@ with gr.Blocks() as demo:
                 offset_x = gr.Slider(label="Offset X", minimum=-1, maximum=1, value=0.0, step=0.01)
                 offset_y = gr.Slider(label="Offset Y", minimum=-1, maximum=1, value=0.0, step=0.01)
 
+                preview_crop_btn = gr.Button(value="Preview Crop")
                 with gr.Row():
-                    preview_crop_btn = gr.Button(value="Preview Crop")
                     crop_preview = gr.Image(label="Crop Preview", height=300)
+                    crop_preview_motion = gr.Image(label="Preview motion Crop", height=300)
 
             with gr.Accordion("Input Video", open=True):
                 input_video_type = gr.Radio(label="Input reference video type",info="You can either upload the video through the interface or use an already compiled npy file", choices=["video","npy"], value="video")
@@ -276,20 +280,21 @@ with gr.Blocks() as demo:
                     input_npy_refresh = gr.Button(value="Update NPY list")
                     input_npy = gr.File(file_types=[".npy"], label="Upload preprocessed video in .npy")
             with gr.Accordion("Animation Preview",open=False):
+                show_gif_btn = gr.Button(value="Show Animation preview")
                 with gr.Row():
-                    show_gif_btn = gr.Button(value="Show Animation preview")
                     gif_output = gr.Image(label="GIF Preview", height=300)
+                    gif_output_align = gr.Image(label="Aligned GIF Preview", height=300)
 
             with gr.Accordion("Animation Settings", open=True):
                 input_video_frames = gr.Slider(label="Video frames", minimum=1, maximum=30, value=30, step=1)
                 settings_steps = gr.Slider(label="Steps", minimum=1, maximum=200, value=30)
                 settings_cfg_scale = gr.Slider(label="CFG scale", minimum=0.1, maximum=20, value=3.5, step=0.1)
                 settings_seed = gr.Slider(minimum=0, maximum=1000, value=42, step=1, label="Seed")
-                intropolate_factor = gr.Slider(label="Intropolate Factor Frames", minimum=1, maximum=50, value=1, step=1)
+                intropolate_factor = gr.Slider(label="Intropolate Factor Frames",info="This is the number of frames to interpolate between the frames", minimum=1, maximum=50, value=1, step=1)
 
                 use_custom_fps = gr.Checkbox(label="Use custom FPS",info="By default the FPS is set to 7", value=True)
                 with gr.Row():
-                    output_fps = gr.Slider(label="Output FPS",info="if you upload video fps slider updates to video fps", minimum=1, maximum=60, value=15, step=1)
+                    output_fps = gr.Slider(label="Output FPS",info="if you upload video fps slider updates to video fps", minimum=1, maximum=240, value=15, step=1)
                     output_fps_info = gr.Label(value="This will be the FPS information of the video you uploaded")
 
             with gr.Accordion("Generation Settings", open=True):
@@ -330,12 +335,12 @@ with gr.Blocks() as demo:
     input_npy_select.change(fn=update_frame_count, inputs=[input_npy_select], outputs=[input_video_frames])
     input_npy.change(fn=update_frame_count, inputs=[input_npy], outputs=[input_video_frames])
 
-    show_gif_btn.click(fn=show_gif_for_npy, inputs=[input_npy_select, input_video], outputs=[gif_output, result_status])
+    show_gif_btn.click(fn=show_gif_for_npy, inputs=[input_npy_select, input_video], outputs=[gif_output, gif_output_align, result_status])
 
     input_video.change(
         fn=update_gif_on_video_change,
         inputs=[input_video],
-        outputs=[gif_output, result_status]
+        outputs=[gif_output,gif_output_align, result_status]
     )
 
     use_custom_fps.change(fn=toggle_fps_slider, inputs=[use_custom_fps], outputs=[output_fps])
@@ -343,7 +348,7 @@ with gr.Blocks() as demo:
     preview_crop_btn.click(
         fn=preview_crop,
         inputs=[input_img, input_npy_select, input_video, expand_x, expand_y, offset_x, offset_y],
-        outputs=[crop_preview, result_status]
+        outputs=[crop_preview,crop_preview_motion, result_status]
     )
 
     result_btn.click(
