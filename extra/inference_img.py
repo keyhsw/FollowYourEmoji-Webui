@@ -20,6 +20,7 @@ from models.unet import UNet3DConditionModel
 from models.video_pipeline import VideoPipeline
 
 from dataset.val_dataset import ValDataset, val_collate_fn
+from rife import RIFE
 
 def load_model_state_dict(model, model_ckpt_path, name):
     ckpt = torch.load(model_ckpt_path, map_location="cpu")
@@ -62,9 +63,10 @@ def is_anomaly(ssim_score, mean_diff, ssim_history, mean_diff_history):
     return False
 
 @torch.no_grad()
-def visualize(dataloader, pipeline, generator, W, H, video_length, num_inference_steps, guidance_scale, output_path, output_fps=7, limit=1, show_stats=False, anomaly_action="none", callback_steps=1, context_frames=24, context_stride=1, context_overlap=4, context_batch_size=1,interpolation_factor=1):
+def visualize(dataloader, pipeline, generator, W, H, video_length, num_inference_steps, guidance_scale, output_path, output_fps=7, limit=1, show_stats=False, anomaly_action="remove", interpolate_anomaly_multiplier=1, interpolate_result=False, interpolate_result_multiplier=1):
     oo_video_path = None
     all_video_path = None
+    
 
     for i, batch in enumerate(dataloader):
         ref_frame = batch['ref_frame'][0]
@@ -97,34 +99,24 @@ def visualize(dataloader, pipeline, generator, W, H, video_length, num_inference
                          guidance_scale=guidance_scale,
                          generator=generator,
                          clip_image=clip_image,
-                         callback_steps=callback_steps,
-                         context_frames=context_frames,
-                         context_stride=context_stride,
-                         context_overlap=context_overlap,
-                         context_batch_size=context_batch_size,
-                         interpolation_factor=interpolation_factor
                         ).videos
 
         preds = preds.permute((0,2,3,4,1)).squeeze(0)
         preds = (preds * 255).cpu().numpy().astype(np.uint8)
 
-        # Сохраняем все кадры
-        frames_dir = os.path.join(output_path, f"frames")
-        os.makedirs(frames_dir, exist_ok=True)
-        frame_paths = []
-        for idx, frame in enumerate(preds):
-            frame_path = os.path.join(frames_dir, f"frame_{idx:04d}.png")
-            imageio.imwrite(frame_path, frame)
-            frame_paths.append(frame_path)
-
-        # Обработка аномалий
-        filtered_frame_paths = []
+        filtered_preds = []
         prev_frame = None
         ssim_history = deque(maxlen=5)
         mean_diff_history = deque(maxlen=5)
+        normal_frames = []
+        
+        # Clear memory
+        torch.cuda.empty_cache()
+        gc.collect()
+        
+        rife = RIFE()
 
-        for idx, frame_path in enumerate(frame_paths):
-            frame = imageio.imread(frame_path)
+        for idx, frame in enumerate(preds):
             if prev_frame is not None:
                 ssim_score, mean_diff = frame_analysis(prev_frame, frame)
                 ssim_history.append(ssim_score)
@@ -137,38 +129,101 @@ def visualize(dataloader, pipeline, generator, W, H, video_length, num_inference
                     print(f"Anomaly detected in frame {idx}")
                     if anomaly_action == "remove":
                         continue
-                    # Если "none", просто продолжаем без каких-либо действий
+                    elif anomaly_action == "interpolate":
+                        if filtered_preds:
+                            interpolated = rife.interpolate_frames(filtered_preds[-1], frame, interpolate_anomaly_multiplier)
+                            filtered_preds.extend(interpolated[1:])
+                        continue
+                    elif anomaly_action == "removeAndInterpolate":
+                        if normal_frames:
+                            last_normal = normal_frames[-1]
+                            interpolated = rife.interpolate_frames(preds[last_normal], frame, idx - last_normal + 1)
+                            filtered_preds.extend(interpolated[1:])
+                        continue
 
-            filtered_frame_paths.append(frame_path)
+            filtered_preds.append(frame)
+            normal_frames.append(idx)
             prev_frame = frame
 
-        # Создание видео из обработанных кадров
-        oo_video_path = os.path.join(output_path, f"{lmk_name}_oo.mp4")
-        imageio.mimsave(oo_video_path, [imageio.imread(frame_path) for frame_path in filtered_frame_paths], fps=output_fps)
+        # Сохраняем промежуточное видео
+        temp_video_path = os.path.join(output_path, f"{lmk_name}_temp.mp4")
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(temp_video_path, fourcc, output_fps, (W, H))
+        for frame in filtered_preds:
+            out.write(frame)
+        out.release()
 
+        # Применяем RIFE для интерполяции результата, если нужно
+        if interpolate_result:
+            exp = int(np.log2(interpolate_result_multiplier))
+            oo_video_path = os.path.join(output_path, f"{lmk_name}_oo.mp4")
+            new_frame_count, new_fps = rife.interpolate_video(temp_video_path, oo_video_path, exp=exp, fps=output_fps*(2**exp))
+            video_length = new_frame_count
+            output_fps = new_fps
+        else:
+            oo_video_path = temp_video_path
+            video_length = len(filtered_preds)
+
+        # Создаем видео со всеми кадрами (original, motion, reference, predicted)
         if 'frames' in batch:
             frames = batch['frames'][0]
             frames = torch.clamp((frames + 1.0) / 2.0, min=0, max=1)
             frames = frames.permute((1, 2, 3, 0))
             frames = (frames * 255).cpu().numpy().astype(np.uint8)
-            combined = [np.concatenate((frame, motion, ref_frame, imageio.imread(pred_path)), axis=1)
-                        for frame, motion, pred_path in zip(frames, motions, filtered_frame_paths)]
+
+            # Читаем кадры из интерполированного видео
+            cap = cv2.VideoCapture(oo_video_path)
+            interpolated_frames = []
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                interpolated_frames.append(frame)
+            cap.release()
+
+            # Растягиваем оригинальные кадры и motion до количества интерполированных кадров
+            frames_extended = [cv2.resize(frame, (W, H), interpolation=cv2.INTER_LINEAR) for frame in frames]
+            frames_extended = frames_extended * (len(interpolated_frames) // len(frames_extended)) + frames_extended[:(len(interpolated_frames) % len(frames_extended))]
+
+            motions_extended = [cv2.resize(motion, (W, H), interpolation=cv2.INTER_LINEAR) for motion in motions]
+            motions_extended = motions_extended * (len(interpolated_frames) // len(motions_extended)) + motions_extended[:(len(interpolated_frames) % len(motions_extended))]
+
+            combined = [np.concatenate((frame, motion, ref_frame, pred), axis=1)
+                        for frame, motion, pred in zip(frames_extended, motions_extended, interpolated_frames)]
         else:
-            combined = [np.concatenate((motion, ref_frame, imageio.imread(pred_path)), axis=1)
-                        for motion, pred_path in zip(motions, filtered_frame_paths)]
+            # Читаем кадры из интерполированного видео
+            cap = cv2.VideoCapture(oo_video_path)
+            interpolated_frames = []
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                interpolated_frames.append(frame)
+            cap.release()
+
+            # Растягиваем motion до количества интерполированных кадров
+            motions_extended = [cv2.resize(motion, (W, H), interpolation=cv2.INTER_LINEAR) for motion in motions]
+            motions_extended = motions_extended * (len(interpolated_frames) // len(motions_extended)) + motions_extended[:(len(interpolated_frames) % len(motions_extended))]
+
+            combined = [np.concatenate((motion, ref_frame, pred), axis=1)
+                        for motion, pred in zip(motions_extended, interpolated_frames)]
 
         all_video_path = os.path.join(output_path, f"{lmk_name}_all.mp4")
-        imageio.mimsave(all_video_path, combined, fps=output_fps)
+        out = cv2.VideoWriter(all_video_path, fourcc, output_fps, (combined[0].shape[1], combined[0].shape[0]))
+        for frame in combined:
+            out.write(frame)
+        out.release()
 
         if i >= limit:
             break
 
-    return oo_video_path, all_video_path
+    rife.unload()
+    return oo_video_path, all_video_path, video_length, output_fps
 
 @torch.no_grad()
 def infer(config_path, model_path, input_path, lmk_path, output_path, model_step, seed,
           resolution_w, resolution_h, video_length, num_inference_steps, guidance_scale, output_fps, show_stats,
-          anomaly_action, callback_steps, context_frames, context_stride, context_overlap, context_batch_size,interpolation_factor):
+          anomaly_action, interpolate_anomaly_multiplier, interpolate_result, interpolate_result_multiplier):
 
     config = OmegaConf.load(config_path)
     config.init_checkpoint = model_path
@@ -245,7 +300,7 @@ def infer(config_path, model_path, input_path, lmk_path, output_path, model_step
     generator = torch.Generator(device=vae.device)
     generator.manual_seed(seed)
 
-    oo_video_path, all_video_path = visualize(
+    oo_video_path, all_video_path, new_video_length, new_output_fps = visualize(
         val_dataloader,
         pipeline,
         generator,
@@ -258,12 +313,9 @@ def infer(config_path, model_path, input_path, lmk_path, output_path, model_step
         output_fps=output_fps,
         show_stats=show_stats,
         anomaly_action=anomaly_action,
-        callback_steps=callback_steps,
-        context_frames=context_frames,
-        context_stride=context_stride,
-        context_overlap=context_overlap,
-        context_batch_size=context_batch_size,
-        interpolation_factor=interpolation_factor,
+        interpolate_anomaly_multiplier=interpolate_anomaly_multiplier,
+        interpolate_result=interpolate_result,
+        interpolate_result_multiplier=interpolate_result_multiplier,
         limit=100000000
     )
 
@@ -271,12 +323,12 @@ def infer(config_path, model_path, input_path, lmk_path, output_path, model_step
     torch.cuda.empty_cache()
     gc.collect()
 
-    return "Inference completed successfully", oo_video_path, all_video_path
+    return "Inference completed successfully", oo_video_path, all_video_path, new_video_length, new_output_fps
 
 def run_inference(config_path, model_path, input_path, lmk_path, output_path, model_step, seed,
                   resolution_w, resolution_h, video_length, num_inference_steps=30, guidance_scale=3.5, output_fps=30,
-                  show_stats=False, anomaly_action="none", callback_steps=1, context_frames=24, context_stride=1,
-                  context_overlap=4, context_batch_size=1,interpolation_factor=1):
+                  show_stats=False, anomaly_action="remove", interpolate_anomaly_multiplier=1,
+                  interpolate_result=False, interpolate_result_multiplier=1):
     try:
         # Clear memory
         torch.cuda.empty_cache()
@@ -284,46 +336,8 @@ def run_inference(config_path, model_path, input_path, lmk_path, output_path, mo
 
         return infer(config_path, model_path, input_path, lmk_path, output_path, model_step, seed,
                      resolution_w, resolution_h, video_length, num_inference_steps, guidance_scale, output_fps,
-                     show_stats, anomaly_action, callback_steps, context_frames, context_stride, context_overlap, context_batch_size,interpolation_factor)
+                     show_stats, anomaly_action, interpolate_anomaly_multiplier,
+                     interpolate_result, interpolate_result_multiplier)
     finally:
         torch.cuda.empty_cache()
         gc.collect()
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, required=True, help="Path to the config file")
-    parser.add_argument("--model", type=str, required=True, help="Path to the model checkpoint")
-    parser.add_argument("--input", type=str, required=True, help="Path to the input image")
-    parser.add_argument("--lmk", type=str, required=True, help="Path to the landmark file")
-    parser.add_argument("--output", type=str, required=True, help="Path to save the output")
-    parser.add_argument("--step", type=int, default=0, help="Model step")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--width", type=int, default=512, help="Output video width")
-    parser.add_argument("--height", type=int, default=512, help="Output video height")
-    parser.add_argument("--length", type=int, default=16, help="Output video length")
-    parser.add_argument("--steps", type=int, default=30, help="Number of inference steps")
-    parser.add_argument("--guidance", type=float, default=3.5, help="Guidance scale")
-    parser.add_argument("--fps", type=int, default=30, help="Output video FPS")
-    parser.add_argument("--show-stats", action="store_true", help="Show frame statistics")
-    parser.add_argument("--anomaly-action", type=str, default="none", choices=["none", "remove"], help="Action for anomaly frames")
-    parser.add_argument("--callback-steps", type=int, default=1, help="Callback steps")
-    parser.add_argument("--context-frames", type=int, default=24, help="Context frames")
-    parser.add_argument("--context-stride", type=int, default=1, help="Context stride")
-    parser.add_argument("--context-overlap", type=int, default=4, help="Context overlap")
-    parser.add_argument("--context-batch-size", type=int, default=1, help="Context batch size")
-    parser.add_argument("--interpolation-factor",type=int, default=1, help="Interpolataion factor" )
-
-    args = parser.parse_args()
-
-    status, oo_path, all_path = run_inference(
-        args.config, args.model, args.input, args.lmk, args.output, args.step, args.seed,
-        args.width, args.height, args.length, args.steps, args.guidance, args.fps,
-        args.show_stats, args.anomaly_action, args.callback_steps, args.context_frames,
-        args.context_stride, args.context_overlap, args.context_batch_size,args.interpolation_factor
-    )
-
-    print(status)
-    print(f"Output video (only output): {oo_path}")
-    print(f"Output video (all frames): {all_path}")

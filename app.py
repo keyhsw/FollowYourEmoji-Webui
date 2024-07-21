@@ -96,8 +96,7 @@ def process_input_video(video, save_to_processed):
     return (f"Video processed. NPY file saved at {npy_path}. Original FPS: {fps}",
             npy_path,
             gr.update(maximum=frame_count, value=frame_count),
-            gr.update(value=fps))
-
+            gr.update(value=f"FPS: {fps}"))
 
 def update_frame_count(npy_file):
     if npy_file is None or npy_file == "None":
@@ -166,7 +165,7 @@ def preview_crop(image_path, npy_file, video_path, expand_x, expand_y, offset_x,
 
 def generate_video(input_img, should_crop_face, expand_x, expand_y, offset_x, offset_y, input_video_type, input_video, input_npy_select, input_npy, input_video_frames,
                    settings_steps, settings_cfg_scale, settings_seed, resolution_w, resolution_h,
-                   model_step, custom_output_path, use_custom_fps, output_fps, save_frames, remove_anomaly_frames, anomaly_detection_mode):
+                   model_step, custom_output_path, use_custom_fps, output_fps, callback_steps, context_frames, context_stride, context_overlap, context_batch_size, anomaly_action,intropolate_factor):
     config['resolution_w'] = resolution_w
     config['resolution_h'] = resolution_h
     config['video_length'] = input_video_frames
@@ -185,7 +184,6 @@ def generate_video(input_img, should_crop_face, expand_x, expand_y, offset_x, of
         video_name = os.path.splitext(os.path.basename(lmk_path))[0]
         if not use_custom_fps:
             output_fps = 7  # default FPS
-
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     output_folder = f"{video_name}_{timestamp}"
@@ -222,26 +220,30 @@ def generate_video(input_img, should_crop_face, expand_x, expand_y, offset_x, of
         num_inference_steps=settings_steps,
         guidance_scale=settings_cfg_scale,
         output_fps=output_fps,
-        save_frames=save_frames,
-        remove_anomaly_frames=remove_anomaly_frames,
-        anomaly_detection_mode=anomaly_detection_mode
+        callback_steps=callback_steps,
+        context_frames=context_frames,
+        context_stride=context_stride,
+        context_overlap=context_overlap,
+        context_batch_size=context_batch_size,
+        anomaly_action=anomaly_action,
+        interpolation_factor=intropolate_factor
     )
 
+
     frames_archive = None
-    if save_frames:
-        frames_dir = os.path.join(output_path, f"frames")
-        if os.path.exists(frames_dir):
-            archive_path = os.path.join(output_path, f"frames.zip")
-            with zipfile.ZipFile(archive_path, 'w') as zipf:
-                for root, dirs, files in os.walk(frames_dir):
-                    for file in files:
-                        zipf.write(os.path.join(root, file),
-                                   os.path.relpath(os.path.join(root, file),
-                                                   os.path.join(frames_dir, '..')))
-            frames_archive = archive_path
-            print(f"The archive has been created: {archive_path}")
-        else:
-            print(f"Directory with frames not found: {frames_dir}")
+    frames_dir = os.path.join(output_path, f"frames")
+    if os.path.exists(frames_dir):
+        archive_path = os.path.join(output_path, f"frames.zip")
+        with zipfile.ZipFile(archive_path, 'w') as zipf:
+            for root, dirs, files in os.walk(frames_dir):
+                for file in files:
+                    zipf.write(os.path.join(root, file),
+                               os.path.relpath(os.path.join(root, file),
+                                               os.path.join(frames_dir, '..')))
+        frames_archive = archive_path
+        print(f"The archive has been created: {archive_path}")
+    else:
+        print(f"Directory with frames not found: {frames_dir}")
 
     return status, oo_video_path, all_video_path, frames_archive
 
@@ -284,17 +286,26 @@ with gr.Blocks() as demo:
                 settings_steps = gr.Slider(label="Steps", minimum=1, maximum=200, value=30)
                 settings_cfg_scale = gr.Slider(label="CFG scale", minimum=0.1, maximum=20, value=3.5, step=0.1)
                 settings_seed = gr.Slider(minimum=0, maximum=1000, value=42, step=1, label="Seed")
-                save_frames = gr.Checkbox(label="Save individual frames",info="Save individual frames", value=True)
-                remove_anomaly_frames = gr.Checkbox(label="Remove anomaly frames",info="Sometimes there are abnormal frames that spoil the picture, this option removes them from the final video", value=True)
-                anomaly_detection_mode = gr.Radio(label="Anomaly detection mode", choices=["light", "hard"], value="light")
+                intropolate_factor = gr.Slider(label="Intropolate Factor Frames", minimum=1, maximum=50, value=1, step=1)
+
+                use_custom_fps = gr.Checkbox(label="Use custom FPS",info="By default the FPS is set to 7", value=True)
+                with gr.Row():
+                    output_fps = gr.Slider(label="Output FPS",info="if you upload video fps slider updates to video fps", minimum=1, maximum=60, value=15, step=1)
+                    output_fps_info = gr.Label(value="This will be the FPS information of the video you uploaded")
+
+            with gr.Accordion("Generation Settings", open=True):
+                context_frames = gr.Slider(label="Context Frames", minimum=1, maximum=50, value=24, step=1)
+                context_stride = gr.Slider(label="Context Stride", minimum=1, maximum=10, value=1, step=1)
+                context_overlap = gr.Slider(label="Context Overlap", minimum=0, maximum=10, value=4, step=1)
+                context_batch_size = gr.Slider(label="Context Batch Size", minimum=1, maximum=10, value=1, step=1)
+                callback_steps = gr.Slider(label="Callback Steps", minimum=1, maximum=50, value=1, step=1)
 
             with gr.Accordion("Advanced Settings", open=False):
                 resolution_w = gr.Slider(label="Resolution Width", minimum=64, maximum=1024, value=config['resolution_w'], step=64)
                 resolution_h = gr.Slider(label="Resolution Height", minimum=64, maximum=1024, value=config['resolution_h'], step=64)
                 model_step = gr.Slider(label="Model Step", value=0, minimum=0, maximum=100)
                 custom_output_path = gr.Textbox(label="Custom Output Path", placeholder="Leave empty for default")
-                use_custom_fps = gr.Checkbox(label="Use custom FPS",info="By default the FPS is set to 7", value=False)
-                output_fps = gr.Slider(label="Output FPS",info="if you upload video fps slider updates to video fps", minimum=1, maximum=60, value=7, step=1, interactive=False)
+                anomaly_action = gr.Radio(label="Anomaly Action",info="Sometimes a bad frame can slip through and this function will detect it and do what you specify", choices=["none", "remove"], value="none")
 
         with gr.Column(scale=1):
             result_status = gr.Label(value="Status")
@@ -314,7 +325,7 @@ with gr.Blocks() as demo:
     input_video.change(
         fn=process_input_video,
         inputs=[input_video, input_video_save],
-        outputs=[result_status, input_npy, input_video_frames, output_fps]
+        outputs=[result_status, input_npy, input_video_frames, output_fps_info]
     )
 
     input_npy_select.change(fn=update_frame_count, inputs=[input_npy_select], outputs=[input_video_frames])
@@ -339,11 +350,19 @@ with gr.Blocks() as demo:
     result_btn.click(
         fn=generate_video,
         inputs=[input_img, crop_face_checkbox, expand_x, expand_y, offset_x, offset_y, input_video_type, input_video, input_npy_select, input_npy, input_video_frames,
-                settings_steps, settings_cfg_scale, settings_seed, resolution_w, resolution_h,
-                model_step, custom_output_path, use_custom_fps, output_fps, save_frames, remove_anomaly_frames, anomaly_detection_mode],
+            settings_steps, settings_cfg_scale, settings_seed, resolution_w, resolution_h,
+            model_step, custom_output_path, use_custom_fps, output_fps, callback_steps, context_frames, context_stride, context_overlap, context_batch_size, anomaly_action,intropolate_factor],
         outputs=[result_status, result_video, result_video_2, frames_output]
     )
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--share", action="store_true", help="Enable sharing")
+    args = parser.parse_args()
+
+    share = args.share
+
     demo.queue()
-    demo.launch(inbrowser=True)
+    demo.launch(inbrowser=True, share=share)

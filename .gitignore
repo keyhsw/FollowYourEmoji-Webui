@@ -31,3 +31,5 @@ out_videos/
 
 /mmpose/ckpt/
 mmpose
+/venv
+/model

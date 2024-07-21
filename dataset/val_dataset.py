@@ -26,8 +26,15 @@ def val_collate_fn(samples):
 
 class ValDataset(Dataset):
     def __init__(self, input_path, lmk_path, resolution_w=512, resolution_h=512):
+        
+        print(f'Loading dataset from {input_path} and {lmk_path}')
+        
         all_img_paths = self._get_path_files(Path(input_path), file_suffix=['.jpg', '.jpeg', '.png', '.webp'])
         all_lmk_paths = self._get_path_files(Path(lmk_path), file_suffix=['.npy'])
+        
+        print(f'Found {len(all_img_paths)} image files and {len(all_lmk_paths)} lmk files')
+        print(f"ALL IMG PATH: {all_img_paths}")
+        print(f"ALL LKM PATH: {all_lmk_paths}")
         self.all_paths = []
         for lmk_path in all_lmk_paths:
             for img_path in all_img_paths:
