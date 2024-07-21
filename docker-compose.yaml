@@ -1,0 +1,17 @@
+version: '3'
+services:
+  followyouremoji:
+    build: .
+    ports:
+      - "8030:7860"
+    volumes:
+      - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
