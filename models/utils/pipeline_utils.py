@@ -3,7 +3,8 @@ import torch
 tensor_interpolation = None
 
 
-def get_tensor_interpolation_method():
+def get_tensor_interpolation_method(is_slerp=True):
+    tensor_interpolation = slerp if is_slerp else linear
     return tensor_interpolation
 
 

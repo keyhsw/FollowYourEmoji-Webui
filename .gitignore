@@ -31,3 +31,8 @@ out_videos/
 
 /mmpose/ckpt/
 mmpose
+/venv
+/model
+/processed_videos
+/temp
+/ckpt_models
