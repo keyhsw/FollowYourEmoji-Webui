@@ -1,3 +1,7 @@
+NoWebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab_nowebui.ipynb)
+
+WebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab_webui.ipynb)
+
 # About this fork
 
 In this fork I implemented the functionality on webui, I modified the original code a bit so that it would be possible to expose as many settings as possible.
@@ -19,10 +23,6 @@ Here is a short list of what has been added to webui
 And many more small improvements that will allow you to work conveniently in one interface.
 
 ## About google colab
-
-NoWebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab_nowebui.ipynb)
-
-WebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab_webui.ipynb)
 
 Colab has been tested on the free version, everything works. Processing time is about 5 minutes for 300 frames.
 
