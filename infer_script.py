@@ -66,10 +66,6 @@ def visualize(dataloader, pipeline, generator, W, H, video_length, num_inference
     oo_video_path = None
     all_video_path = None
     
-    # Clear memory
-    torch.cuda.empty_cache()
-    gc.collect()
-
     for i, batch in enumerate(dataloader):
         ref_frame = batch['ref_frame'][0]
         clip_image = batch['clip_image'][0]
