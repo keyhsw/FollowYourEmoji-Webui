@@ -1,5 +1,7 @@
+@Echo off
+
 python -m venv venv 
-venv/scripts/activate
+call venv/scripts/activate
 
 Echo Install dependencies
 pip install -r requirements.txt
