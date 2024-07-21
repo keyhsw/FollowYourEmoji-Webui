@@ -32,6 +32,9 @@ You can try FollowYourEmoji online by clicking one of the buttons above!
 
 ## Screenshoot
 
+![image](https://github.com/user-attachments/assets/5d5bce76-4dfe-4012-bfee-58fac3e63c29)
+
+
 ## Installation
 
 Before you start, make sure you have: CUDA 12.1, ffmpeg, python 3.10
