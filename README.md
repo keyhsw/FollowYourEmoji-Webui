@@ -1,12 +1,40 @@
 # About this fork
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab.ipynb)
+In this fork I implemented the functionality on webui, I modified the original code a bit so that it would be possible to expose as many settings as possible.
+
+Here you can experience the full functionality of FollowYourEmoji.
+
+Here is a short list of what has been added to webui
+1. Ability to conveniently upload a reference picture and video.
+2. a tool to crop the reference picture so that it fits the video perfectly.
+3. Ability to see a preview of the cropped picture, zoom in or shift the cropping.
+4. The ability to upload any video without the need for additional processing (the interface itself processes everything).
+5. Ability to upload .npy file, as well as choose from a folder. Each processed video is added to the folder, which allows you to select the same video without re-processing.
+6. Ability to see how the animation will look like before generation.
+7. Many different settings, both custom and official.
+8. Ability to specify the FPS of the output video 
+9. Mechanism to remove "Anomalous frames" in automatic mode
+10. Possibility to get all frames in the archive in addition to video.
+
+And many more small improvements that will allow you to work conveniently in one interface.
+
+## About google colab
+
+NoWebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab.ipynb)
+
+WebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab.ipynb)
+
+Colab has been tested on the free version, everything works. Processing time is about 5 minutes for 300 frames.
+
+**Attention free colab is working at the limit of its capabilities, and I do not advise you to change the generation parameters, because you are likely to crash due to lack of RAM**
 
 You can try FollowYourEmoji online by clicking one of the buttons above!
 
+## About webui
+
 In this fork I slightly modified the code to make it work under colab.
 
-Colab has been tested on the free version, everything works. Processing time is about 5 minutes for 30 frames.
+
 
 <!-- <h1 align="center"><span>Follow-Your-Emoji: Fine-Controllable and Expressive Freestyle Portrait Animation</strong></h1>
 
