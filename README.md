@@ -4,6 +4,10 @@ WebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab
 
 # About this fork
 
+You can see sample videos in the example folder
+
+https://github.com/daswer123/FollowYourEmoji-Webui/tree/main/example
+
 In this fork I implemented the functionality on webui, I modified the original code a bit so that it would be possible to expose as many settings as possible.
 
 Here you can experience the full functionality of FollowYourEmoji.
