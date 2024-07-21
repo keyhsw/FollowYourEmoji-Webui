@@ -5,7 +5,7 @@ imageio==2.33.0
 numpy==1.23.5
 onnx==1.16.1
 onnxruntime-gpu==1.14.0
-open-clip-torch==2.20.0
+open-clip-torch==2.26.1
 opencv-python==4.8.1.78
 Pillow==9.5.0
 tensorboard==2.14.0
@@ -13,11 +13,14 @@ torch==2.1.1
 torchvision==0.16.1
 torchaudio==2.1.1
 onnxruntime
-xformers==0.0.23
 matplotlib
-mediapipe==0.10.13
 imageio[ffmpeg]
 imageio[pyav]
 omegaconf
 transformers
 accelerate
+mediapipe==0.10.13 
+protobuf==4.25.3
+xformers==0.0.23
+gradio
+scikit-image

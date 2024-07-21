@@ -60,9 +60,7 @@ def show_gif_for_npy(npy_file, video_path):
         npy_path = npy_file
     elif video_path:
         video_name = os.path.splitext(os.path.basename(video_path))[0]
-        npy_path = os.path.join(PROCESSED_VIDEO_DIR, video_name, f"{video_name}_mppose.npy")
-        if not os.path.exists(npy_path):
-            npy_path = os.path.join(TEMP_DIR, video_name, f"{video_name}_mppose.npy")
+        npy_path = os.path.join(PROCESSED_VIDEO_DIR if input_video_save.value else TEMP_DIR, video_name, f"{video_name}_mppose.npy")
     else:
         return None, "No NPY file or video selected"
 
@@ -70,11 +68,12 @@ def show_gif_for_npy(npy_file, video_path):
         return None, "NPY file not found"
 
     try:
-        gif_path = os.path.join(TEMP_DIR, f"{os.path.splitext(os.path.basename(npy_path))[0]}_preview.gif")
+        gif_path = os.path.join(os.path.dirname(npy_path), f"{os.path.splitext(os.path.basename(npy_path))[0]}_preview.gif")
         create_gif_from_npy(npy_path, gif_path)
         return gif_path, "GIF created and displayed"
     except Exception as e:
         return None, f"Failed to create GIF: {str(e)}"
+
 
 def process_input_video(video, save_to_processed):
     if video is None:
