@@ -1,6 +1,6 @@
-NoWebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab.ipynb)
+NoWebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab_nowebui.ipynb)
 
-WebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab.ipynb)
+WebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab_webui.ipynb)
 
 # About this fork
 
