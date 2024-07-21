@@ -14,6 +14,11 @@ import shutil
 import imageio
 from media_pipe.draw_util import FaceMeshVisualizer
 
+from download_models import download 
+
+# Download models and check for exists
+download()
+
 PROCESSED_VIDEO_DIR = './processed_videos'
 TEMP_DIR = './temp'
 INFER_CONFIG_PATH = './configs/infer.yaml'
