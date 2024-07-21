@@ -1,6 +1,6 @@
-NoWebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab_nowebui.ipynb)
+NoWebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab.ipynb)
 
-WebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab_webui.ipynb)
+WebUI version - [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/daswer123/FollowYourEmoji-colab/blob/main/colab/follow_emoji_collab.ipynb)
 
 # About this fork
 
@@ -30,11 +30,103 @@ Colab has been tested on the free version, everything works. Processing time is 
 
 You can try FollowYourEmoji online by clicking one of the buttons above!
 
-## About webui
+## Screenshoot
 
-In this fork I slightly modified the code to make it work under colab.
+## Installation
+
+Before you start, make sure you have: CUDA 12.1, ffmpeg, python 3.10
+
+There are two ways to install FollowYourEmoji-Webui: Simple and Manual. Choose the method that suits you best.
+
+### Simple Installation
+
+1. Clone the repository:
+```
+git clone https://github.com/daswer123/FollowYourEmoji-Webui.git
+cd FollowYourEmoji-Webui
+```
+
+2. Run the installation script:
+   - For Windows: `install.bat`
+   - For Linux: `./install.sh`
+
+3. Start the application:
+   - For Windows: `start.bat`
+   - For Linux: `./start.sh`
+
+### Manual Installation
+
+#### For Linux:
+
+```bash
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install extra dependencies
+pip install torch==2.1.1 torchaudio==2.1.1
+pip install deepspeed==0.13.1
+
+# Download pretrained model files
+git lfs install
+git clone https://huggingface.co/YueMafighting/FollowYourEmoji ./ckpt_models
+git clone https://huggingface.co/daswer123/FollowYourEmoji_BaseModelPack ./ckpt_models/base
+```
+
+#### For Windows:
+
+```batch
+# Create virtual environment
+python -m venv venv
+venv\scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install extra dependencies
+pip install torch==2.1.1+cu121 torchaudio==2.1.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+pip install https://github.com/daswer123/deepspeed-windows/releases/download/13.1/deepspeed-0.13.1+cu121-cp310-cp310-win_amd64.whl
+
+# Download pretrained model files
+git lfs install
+git clone https://huggingface.co/YueMafighting/FollowYourEmoji ./ckpt_models
+git clone https://huggingface.co/daswer123/FollowYourEmoji_BaseModelPack ./ckpt_models/base
+```
+
+## Launch
+
+After installation, you have several options to launch FollowYourEmoji-Webui:
+
+### Using launch scripts
+
+- For Windows: `start.bat`
+- For Linux: `./start.sh`
+
+### Manual launch
+
+1. Activate the virtual environment:
+   - Windows: `venv\Scripts\activate`
+   - Linux: `source venv/bin/activate`
+
+2. Run the application:
+   - Windows: `python app.py`
+   - Linux: `python3 app.py`
+
+### Sharing your instance
+
+To create a tunnel and share your instance with others, add the `--share` flag:
+
+- Windows: `python app.py --share`
+- Linux: `python3 app.py --share`
+
+This will generate a public URL that you can share with others, allowing them to access your FollowYourEmoji-Webui instance remotely.
 
 
+
+# Original README 
 
 <!-- <h1 align="center"><span>Follow-Your-Emoji: Fine-Controllable and Expressive Freestyle Portrait Animation</strong></h1>
 
