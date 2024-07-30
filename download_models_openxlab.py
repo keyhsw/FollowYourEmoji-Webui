@@ -7,7 +7,7 @@ def create_directory(path):
 def download():
     emoji_path = './ckpt_models/'
     create_directory(emoji_path)          
-    os.system(f'git clone https://code.openxlab.org.cn/houshaowei/FollowYourEmoji_BaseModelPack.git {base_path}')
+    os.system(f'git clone https://code.openxlab.org.cn/houshaowei/FollowYourEmoji_BaseModelPack.git {emoji_path}')
     os.system(f'cd {emoji_path} && git lfs pull')   
     
     
