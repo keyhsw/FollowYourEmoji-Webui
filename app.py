@@ -14,7 +14,7 @@ import shutil
 import imageio
 from media_pipe.draw_util import FaceMeshVisualizer
 
-from download_models import download 
+from download_models_openxlab import download 
 
 # Download models and check for exists
 download()
